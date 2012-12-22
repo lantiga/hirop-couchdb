@@ -111,6 +111,7 @@
   [context-doc-id context-doc-rev]
   (str context-doc-id "#" context-doc-rev))
 
+;; Eventually consider using CouchDB update handlers.
 (defn save*
   [store context]
   (let [docs (vals (merge (:stored store) (:starred store)))
@@ -126,6 +127,11 @@
         (if (with-db (clutch/document-exists? context-doc-id))
           (with-db (clutch/get-document context-doc-id))
           (with-db (clutch/put-document {:_id context-doc-id})))
+        ;; TODO IMPORTANT: here we should check the rev of the
+        ;; currently loaded context doc and make sure it's the same
+        ;; as the one that has been retrieved. If not return :conflict
+        ;; Also, the rev should then be incorporated in the context
+        ;; document, so that a 409 response can be triggered.
         rels
         (reduce
          (fn [out doc]
@@ -167,9 +173,14 @@
          :docs docs}
         context-doc (merge context-doc doc-data)
         ]
-    (with-db
-      (clutch/put-document context-doc))
-    tmp-map))
+    (try
+      (with-db
+        (clutch/put-document context-doc))
+      {:result :success :remap tmp-map}
+      ;; TODO: catch correct exception (on 409)
+      ;;  Analyze when the exception should be triggered
+      (catch Exception e
+        {:result :conflict}))))
 
 (defmethod fetch :couchdb
   [backend context]
