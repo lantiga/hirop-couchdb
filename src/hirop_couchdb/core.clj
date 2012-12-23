@@ -113,12 +113,12 @@
 
 ;; Eventually consider using CouchDB update handlers.
 (defn save*
-  [store context]
-  (let [docs (vals (merge (:stored store) (:starred store)))
+  [context]
+  (let [docs (vals (merge (:stored context) (:starred context)))
         external-doctypes (set (hirop/get-external-doctypes context))
         docs (filter #(not (contains? external-doctypes (hirop/htype %))) docs)
         external-ids (:external-ids context)
-        tmp-starred (filter hirop/has-temporary-id? (vals (:starred store)))
+        tmp-starred (filter hirop/has-temporary-id? (vals (:starred context)))
         ;;uuids (:uuids (with-db (clutch/uuids (count tmp-starred))))
         uuids (repeatedly (count tmp-starred) uuid)
         tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
@@ -165,7 +165,7 @@
               (hirop/dissoc-hrev)
               (hirop/dissoc-hrels))))
          docs)
-        context-name (:context-name store)
+        context-name (:name context)
         doc-data
         {:context-name context-name
          :external-ids external-ids
@@ -187,8 +187,8 @@
   (fetch* context))
 
 (defmethod save :couchdb
-  [backend store context]
-  (save* store context))
+  [backend context]
+  (save* context))
 
 (defmethod history :orientdb
   [backend id]
