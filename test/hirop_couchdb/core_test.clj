@@ -38,25 +38,23 @@
         {:connection-string "http://127.0.0.1:5984/testdb"
          :username nil
          :password nil}
-        context (hirop/create-context :Test cardinality-test-context doctypes {:Foo "0"})
-        store (hirop/new-store context {})
-        store (hirop/fetch store context cardinality-test-fetcher)
-        store (hirop/merge-remote store)
-        docs (hirop/checkout store :Baz)
+        context
+        (->
+         (hirop/create-context :Test cardinality-test-context doctypes {:Foo "0"} {} :none)
+         (hirop/fetch cardinality-test-fetcher)
+         (hirop/merge-remote))
+        docs (hirop/checkout context :Baz)
         doc (assoc (first docs) :title "Starred")
-        store (hirop/commit store doc)
-        store (hirop/inc-uuid store)
-        new-id (hirop/get-uuid store)
-        new-bar (update-in (hirop/new-document context :Baz) [:_hirop] #(merge % {:id new-id :rels {:Bar ["2"]}}))
-        store (hirop/commit store new-bar)
+        context (hirop/commit context doc)
+        new-bar (assoc-in (hirop/new-document context :Baz) [:_hirop :rels] {:Bar ["2"]})
+        context (hirop/commit context new-bar)
         external-ids {:Foo "0"}]
-    (init connection-data)
-    (save-views)
+    (init-database connection-data)
     ;;(with-db (clutch/put-document {:_id "0" :$hirop {:type "Foo"}}))
-    (with-db (clutch/put-document {:docs [{:_hirop {:id "0" :type "Foo"}}]}))
-    (let [res (save* store context)
+    (with-db connection-data (clutch/put-document {:docs [{:_hirop {:id "0" :type "Foo"}}]}))
+    (let [res (save* connection-data context)
           remap (:remap res)
-          docs (fetch* context)]
+          docs (fetch* connection-data context)]
       (pprint docs)
       (is true)
       #_(is (= (set (hirop/hrel (first (filter #(= (hirop/htype %) :Baz) docs)) :Bar))

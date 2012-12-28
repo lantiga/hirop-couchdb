@@ -7,12 +7,11 @@
             [cheshire.core :as json]
             [cemerick.url :as url]))
 
-(defmacro with-db [& forms]
-  ;; TODO: if db not initialized, initialize it 
+(defmacro with-db [backend & forms]
   `(clutch/with-db
-     (assoc (cemerick.url/url (:connection-string *connection-data*))
-       :username (:username *connection-data*)
-       :password (:password *connection-data*))
+     (assoc (cemerick.url/url (:connection-string ~backend))
+       :username (:username ~backend)
+       :password (:password ~backend))
      (do ~@forms)))
 
 (defn save-views
@@ -29,12 +28,11 @@
       "function(doc) { if (doc.docs !== undefined) { for (var i=0; i<doc.docs.length; i++) { emit(doc.docs[i]._hirop.id, doc.docs[i]); }} else { emit(doc._id, doc) }}"}})))
 
 (defn init-database
-  [connection-data]
+  [backend]
   (try
-    (binding [*connection-data* connection-data]
-      (with-db
-        (clutch/get-database)
-        (save-views)))
+    (with-db backend
+      (clutch/get-database)
+      (save-views))
     (catch Exception e (prn e))))
 
 ;; Design:
@@ -58,15 +56,15 @@
      (hirop/assoc-hrev (:_rev doc)))))
 
 (defn get-hirop-view-doc
-  [id]
+  [backend id]
   (->
-   (first (map :value (with-db (clutch/get-view "hirop" :all {:key id}))))
+   (first (map :value (with-db backend (clutch/get-view "hirop" :all {:key id}))))
    couch->hirop))
 
 (defn get-hirop-view-docs
-  [ids]
+  [backend ids]
   (->>
-   (map :value (with-db (clutch/get-view "hirop" :all {:keys ids})))
+   (map :value (with-db backend (clutch/get-view "hirop" :all {:keys ids})))
    (map couch->hirop)))
 
 (defn- context-document-id-rev
@@ -80,12 +78,12 @@
   (str context-doc-id "#" context-doc-rev))
 
 (defn fetch*
-  [context]
+  [backend context]
   (let [external-ids (:external-ids context)
         context-doc-id (json/generate-string external-ids)
-        context-doc (with-db (clutch/get-document context-doc-id))
+        context-doc (with-db backend (clutch/get-document context-doc-id))
         context-doc-rev (:_rev context-doc)
-        external-docs (map #(get-hirop-view-doc %) (vals external-ids))
+        external-docs (map #(get-hirop-view-doc backend %) (vals external-ids))
         external-doctypes (set (hirop/get-external-doctypes context))
         external-docs
         (reduce
@@ -93,8 +91,8 @@
            (reduce
             (fn [out [_ rel-ids]]
               (if (coll? rel-ids)
-                (concat out (get-hirop-view-docs rel-ids))
-                (conj out (get-hirop-view-doc rel-ids))))
+                (concat out (get-hirop-view-docs backend rel-ids))
+                (conj out (get-hirop-view-doc backend rel-ids))))
             out
             (filter #(contains? external-doctypes (first %)) rel-map)))
          external-docs
@@ -112,7 +110,7 @@
 
 ;; Eventually consider using CouchDB update handlers.
 (defn save*
-  [context]
+  [backend context]
   (let [docs (vals (merge (:stored context) (:starred context)))
         external-doctypes (set (hirop/get-external-doctypes context))
         docs (filter #(not (contains? external-doctypes (hirop/htype %))) docs)
@@ -168,7 +166,7 @@
     (try
       ;; TODO: catch correct exception (on 409)
       ;;  Analyze when the exception should be triggered
-      (with-db
+      (with-db backend
         (clutch/put-document context-doc))
       {:result :success :remap tmp-map}
       (catch Exception e
@@ -176,13 +174,14 @@
 
 (defmethod fetch :couchdb
   [backend context]
-  (fetch* context))
+  (fetch* backend context))
 
 (defmethod save :couchdb
   [backend context]
-  (save* context))
+  (save* backend context))
 
 (defmethod history :orientdb
   [backend id]
   #_(with-db
+      backend
     ))
