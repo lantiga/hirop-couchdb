@@ -9,7 +9,7 @@
 
 (defmacro with-db [backend & forms]
   `(clutch/with-db
-     (assoc (cemerick.url/url (:connection-string ~backend))
+     (assoc (cemerick.url/url (:connection-string ~backend) (:db ~backend))
        :username (:username ~backend)
        :password (:password ~backend))
      (do ~@forms)))
@@ -118,6 +118,7 @@
         tmp-starred (filter hirop/has-temporary-id? (vals (:starred context)))
         uuids (repeatedly (count tmp-starred) uuid)
         tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
+      ;; TODO: instead of just external-ids, the signature for the context document id should include the context name (there could be more than one context with the same external ids. 
         context-doc {:_id (json/generate-string external-ids)}
         context-doc
         (if-let [rev (hirop/hrev (first (vals (:stored context))))]
