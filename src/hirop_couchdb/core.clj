@@ -2,17 +2,21 @@
   (:use hirop.backend)
   (:use clojure.pprint)
   (:use [com.ashafa.clutch.http-client :only [couchdb-request]])
+  (:use [cemerick.url :only [url]])
   (:require [hirop.core :as hirop]
             [com.ashafa.clutch :as clutch]
-            [cheshire.core :as json]
-            [cemerick.url :as url]))
+            [cheshire.core :as json]))
 
 (defmacro with-db [backend & forms]
-  `(clutch/with-db
-     (assoc (cemerick.url/url (:connection-string ~backend) (:db ~backend))
-       :username (:username ~backend)
-       :password (:password ~backend))
-     (do ~@forms)))
+  `(let [url#
+         (if (= (type ~backend) cemerick.url.URL) ~backend
+             (let [db-url# (url (:connection-string ~backend) (:db ~backend))
+                   db-url# (if (:username ~backend)
+                             (assoc db-url# :username (:username ~backend)
+                                    :password (:password ~backend))
+                             db-url#)]
+               db-url#))]
+     (clutch/with-db url# (do ~@forms))))
 
 (defn save-views
   []
@@ -118,7 +122,7 @@
         tmp-starred (filter hirop/has-temporary-id? (vals (:starred context)))
         uuids (repeatedly (count tmp-starred) uuid)
         tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
-      ;; TODO: instead of just external-ids, the signature for the context document id should include the context name (there could be more than one context with the same external ids. 
+      ;; TODO: instead of just external-ids, the signature for the context document id should include the context name (there could be more than one context with the same external ids.
         context-doc {:_id (json/generate-string external-ids)}
         context-doc
         (if-let [rev (hirop/hrev (first (vals (:stored context))))]
