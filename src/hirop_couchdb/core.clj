@@ -2,21 +2,13 @@
   (:use hirop.backend)
   (:use clojure.pprint)
   (:use [com.ashafa.clutch.http-client :only [couchdb-request]])
-  (:use [cemerick.url :only [url]])
+  (:use [cemerick.url :only [url map->URL]])
   (:require [hirop.core :as hirop]
             [com.ashafa.clutch :as clutch]
             [cheshire.core :as json]))
 
 (defmacro with-db [backend & forms]
-  `(let [url#
-         (if (= (type ~backend) cemerick.url.URL) ~backend
-             (let [db-url# (url (:connection-string ~backend) (:db ~backend))
-                   db-url# (if (:username ~backend)
-                             (assoc db-url# :username (:username ~backend)
-                                    :password (:password ~backend))
-                             db-url#)]
-               db-url#))]
-     (clutch/with-db url# (do ~@forms))))
+  `(clutch/with-db (map->URL ~backend) (do ~@forms)))
 
 (defn save-views
   []
