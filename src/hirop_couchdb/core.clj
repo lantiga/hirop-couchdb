@@ -139,7 +139,7 @@
         uuids (repeatedly (count tmp-starred) uuid)
         tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
         ;; context-doc {:_id (json/generate-string external-ids)}
-        context-doc {:_id (context-doc-id)}
+        context-doc {:_id (context-doc-id context)}
         context-doc
         (if-let [rev (hirop/hrev (first (vals (:stored context))))]
           (assoc context-doc :_rev rev)
