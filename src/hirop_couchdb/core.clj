@@ -73,11 +73,35 @@
   [context-doc-id context-doc-rev]
   (str context-doc-id "#" context-doc-rev))
 
+(defn- hexify
+  [s]
+  (format "%x" (new java.math.BigInteger (.getBytes s))))
+
+(defn- md5
+  "Generate a md5 checksum for the given string"
+  [token]
+  (let [hash-bytes
+         (doto (java.security.MessageDigest/getInstance "MD5")
+               (.reset)
+               (.update (.getBytes token)))]
+       (.toString
+         (new java.math.BigInteger 1 (.digest hash-bytes)) ; Positive and the size of the number
+         16))) ; Use base16 i.e. hex
+
+(defn context-doc-id
+  [context]
+  (str
+   "hctx_"
+   (->
+    {(:name context) (:external-ids context)}
+    (json/generate-string)
+    ;;(hexify)
+    (md5))))
+
 (defn fetch*
   [backend context]
   (let [external-ids (:external-ids context)
-        context-doc-id (json/generate-string external-ids)
-        context-doc (with-db backend (clutch/get-document context-doc-id))
+        context-doc (with-db backend (clutch/get-document (context-doc-id context)))
         context-doc-rev (:_rev context-doc)
         external-docs (map #(get-hirop-view-doc backend %) (vals external-ids))
         external-doctypes (set (hirop/get-external-doctypes context))
@@ -114,8 +138,8 @@
         tmp-starred (filter hirop/has-temporary-id? (vals (:starred context)))
         uuids (repeatedly (count tmp-starred) uuid)
         tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
-      ;; TODO: instead of just external-ids, the signature for the context document id should include the context name (there could be more than one context with the same external ids.
-        context-doc {:_id (json/generate-string external-ids)}
+        ;; context-doc {:_id (json/generate-string external-ids)}
+        context-doc {:_id (context-doc-id)}
         context-doc
         (if-let [rev (hirop/hrev (first (vals (:stored context))))]
           (assoc context-doc :_rev rev)
