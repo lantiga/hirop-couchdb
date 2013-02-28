@@ -201,7 +201,7 @@
   [backend context]
   (save* backend context))
 
-(defmethod history :orientdb
+(defmethod history :couchdb
   [backend id]
   #_(with-db
       backend
