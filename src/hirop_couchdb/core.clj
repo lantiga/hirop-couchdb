@@ -1,6 +1,5 @@
 (ns hirop-couchdb.core
   (:use hirop.backend)
-  (:use clojure.pprint)
   (:use [com.ashafa.clutch.http-client :only [couchdb-request]])
   (:use [cemerick.url :only [url map->URL]])
   (:require [hirop.core :as hirop]
