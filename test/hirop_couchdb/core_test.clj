@@ -23,14 +23,15 @@
    :configurations {}})
 
 (defn cardinality-test-fetcher [_]
-  [{:_hirop {:id "0" :type :Foo}
-    :id "0"}
-   {:_hirop {:id "1" :type :Bar :rels {:Foo "0"}}
-    :title "First"}
-   {:_hirop {:id "2" :type :Bar :rels {:Foo "0"}}
-    :title "Second"}
-   {:_hirop {:id "3" :type :Baz :rels {:Bar ["1" "2"]}}
-    :title "Third"}])
+  {:documents
+   [{:_hirop {:id "0" :type :Foo}
+     :id "0"}
+    {:_hirop {:id "1" :type :Bar :rels {:Foo "0"}}
+     :title "First"}
+    {:_hirop {:id "2" :type :Bar :rels {:Foo "0"}}
+     :title "Second"}
+    {:_hirop {:id "3" :type :Baz :rels {:Bar ["1" "2"]}}
+     :title "Third"}]})
 
 (deftest save-fetch-test
   (let [connection-data
@@ -58,7 +59,7 @@
     (with-db connection-data (clutch/put-document {:docs [{:_hirop {:id "0" :type "Foo"}}]}))
     (let [res (save* connection-data context)
           remap (:remap res)
-          docs (fetch* connection-data context)]
+          {docs :documents} (fetch* connection-data context)]
       (is (= {:Bar ["2"]}
             (hirop/hrels (first (filter #(= (hirop/hid %) (remap new-bar-tmp-id)) docs))))))))
 

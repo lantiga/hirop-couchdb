@@ -97,6 +97,10 @@
     ;;(hexify)
     (md5))))
 
+(defn context-doc-rev
+  [context]
+  (get-in context [:context-info :context-doc-rev]))
+
 (defn fetch*
   [backend context]
   (let [external-ids (:external-ids context)
@@ -125,7 +129,8 @@
             (if (:_rev doc) doc (hirop/assoc-hrev doc context-doc-rev))
             (hirop/assoc-hrels (get-in context-doc [:rels (keyword (hirop/hid doc))]))))
          (:docs context-doc))]
-    docs))
+    {:context-info {:context-doc-rev context-doc-rev}
+     :documents docs}))
 
 ;; Eventually consider using CouchDB update handlers.
 (defn save*
@@ -138,11 +143,11 @@
         uuids (repeatedly (count tmp-starred) uuid)
         tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
         ;; context-doc {:_id (json/generate-string external-ids)}
-        context-doc {:_id (context-doc-id context)}
-        context-doc
-        (if-let [rev (hirop/hrev (first (vals (:stored context))))]
-          (assoc context-doc :_rev rev)
-          context-doc)
+        ;;context-doc {:_id (context-doc-id context)
+        ;;             :_rev (context-doc-rev context)}
+        context-doc {:_id (context-doc-id context)} 
+        context-doc-rev (context-doc-rev context)
+        context-doc (if context-doc-rev (assoc context-doc :_rev context-doc-rev) context-doc)
         rels
         (reduce
          (fn [out doc]
@@ -177,19 +182,22 @@
               (hirop/dissoc-hrels))))
          docs)
         context-name (:name context)
+        context-info (:context-info context)
         doc-data
         {:context-name context-name
          :external-ids external-ids
+         :context-info context-info
          :rels rels
          :docs docs}
         context-doc (merge context-doc doc-data)]
+    ;;(clojure.pprint/pprint (doall context-doc)) 
     (try
       ;; TODO: catch correct exception (on 409)
       ;;  Analyze when the exception should be triggered
-      (with-db backend
-        (clutch/put-document context-doc))
-      {:result :success :remap tmp-map}
+      (let [{rev :_rev} (with-db backend (clutch/put-document context-doc))] 
+        {:result :success :remap tmp-map :context-info {:context-doc-rev rev}}) 
       (catch Exception e
+        (prn "EXCEPTION" e)
         {:result :conflict}))))
 
 (defmethod fetch :couchdb
