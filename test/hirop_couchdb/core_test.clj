@@ -50,7 +50,7 @@
         doc (assoc (first docs) :title "Starred")
         context (hirop/commit context doc)
         new-bar (assoc-in (hirop/new-document context :Baz) [:_hirop :rels] {:Bar ["2"]})
-        new-bar-tmp-id (hirop/hid new-bar)
+        new-bar-id (hirop/hid new-bar)
         context (hirop/commit context new-bar)
         external-ids {:Foo "0"}]
     (with-db connection-data (clutch/delete-database))
@@ -58,8 +58,7 @@
     ;;(with-db (clutch/put-document {:_id "0" :$hirop {:type "Foo"}}))
     (with-db connection-data (clutch/put-document {:docs [{:_hirop {:id "0" :type "Foo"}}]}))
     (let [res (save* connection-data context)
-          remap (:remap res)
           {docs :documents} (fetch* connection-data context)]
       (is (= {:Bar ["2"]}
-            (hirop/hrels (first (filter #(= (hirop/hid %) (remap new-bar-tmp-id)) docs))))))))
+            (hirop/hrels (first (filter #(= (hirop/hid %) new-bar-id) docs))))))))
 

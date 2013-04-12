@@ -139,9 +139,6 @@
         external-doctypes (set (hirop/get-external-doctypes context))
         docs (filter #(not (contains? external-doctypes (hirop/htype %))) docs)
         external-ids (:external-ids context)
-        tmp-starred (filter hirop/has-temporary-id? (vals (:starred context)))
-        uuids (repeatedly (count tmp-starred) uuid)
-        tmp-map (zipmap (map hirop/hid tmp-starred) uuids)
         ;; context-doc {:_id (json/generate-string external-ids)}
         ;;context-doc {:_id (context-doc-id context)
         ;;             :_rev (context-doc-rev context)}
@@ -151,36 +148,12 @@
         rels
         (reduce
          (fn [out doc]
-           (let [remap (fn [id] (if (contains? tmp-map id) (get tmp-map id) id))
-                 hid (remap (hirop/hid doc))
-                 htype (hirop/htype doc)
-                 hrels (hirop/hrels doc)
-                 hrels
-                 (into {}
-                  (map
-                   (fn [[rel-type rel-ids]]
-                     [rel-type
-                      (if (coll? rel-ids)
-                        (map remap rel-ids)
-                        (remap rel-ids))])
-                   hrels))]
-             (if (empty? hrels)
-               out
-               (assoc out hid hrels))))
+           (if (empty? (hirop/hrels doc))
+             out
+             (assoc out (hirop/hid doc) (hirop/hrels doc))))
          {}
          docs)
-        docs
-        (map
-         (fn [doc]
-           (let [doc
-                 (if (contains? tmp-map (hirop/hid doc))
-                   (hirop/assoc-hid doc (get tmp-map (hirop/hid doc)))
-                   doc)]
-             (->
-              doc
-              (hirop/dissoc-hrev)
-              (hirop/dissoc-hrels))))
-         docs)
+        docs (map #(-> % (hirop/dissoc-hrev) (hirop/dissoc-hrels)) docs)
         context-name (:name context)
         context-info (:context-info context)
         doc-data
@@ -195,7 +168,7 @@
       ;; TODO: catch correct exception (on 409)
       ;;  Analyze when the exception should be triggered
       (let [{rev :_rev} (with-db backend (clutch/put-document context-doc))] 
-        {:result :success :remap tmp-map :context-info {:context-doc-rev rev}}) 
+        {:result :success :context-info {:context-doc-rev rev}}) 
       (catch Exception e
         (prn "EXCEPTION" e)
         {:result :conflict}))))
